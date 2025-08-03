@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1f2937;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .add-note-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        textarea {
+            height: 150px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .notes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .note {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .note h3 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 1.25rem;
+        }
+
+        .note p {
+            color: #4b5563;
+            line-height: 1.5;
+        }
+
+        .action-buttons {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .pin-btn {
+            background: #f59e0b;
+        }
+
+        .pin-btn:hover {
+            background: #d97706;
+        }
+
+        .archive-btn {
+            background: #6366f1;
+        }
+
+        .archive-btn:hover {
+            background: #4f46e5;
+        }
+
+        .delete-btn {
+            background: #ef4444;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        .pinned-note {
+            border: 2px solid #f59e0b;
+        }
+
+        .archived-note {
+            opacity: 0.7;
+        }
+
+        .filter-buttons {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 2px solid #3b82f6;
+            color: #3b82f6;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .timestamp {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 10px;
+        }
+
+        #logoutButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+        }
+
+        #logoutButton:hover {
+            background: #dc2626;
+        }
+
+        @media (max-width: 768px) {
+            .notes-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button id="logoutButton" class="btn">Logout</button>
+            <h1>Notes App</h1>
+            <p>Capture your thoughts and ideas</p>
+        </div>
+
+        <div class="add-note-container">
+            <div class="input-group">
+                <input type="text" id="note-title" placeholder="Note Title">
+            </div>
+            <div class="input-group">
+                <textarea id="note-content" placeholder="Write your note here..."></textarea>
+            </div>
+            <button class="btn">Add Note</button>
+        </div>
+
+        <div class="filter-buttons">
+            <button class="filter-btn active" onclick="filterNotes('all')">All Notes</button>
+            <button class="filter-btn" onclick="filterNotes('pinned')">Pinned</button>
+            <button class="filter-btn" onclick="filterNotes('archived')">Archived</button>
+        </div>
+
+        <div class="notes-container" id="notes-container">
+            <!-- Notes will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Load scripts in correct order -->
+    <script src="auth.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

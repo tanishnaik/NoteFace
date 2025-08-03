@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Notes App</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.13.0"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+    <script defer src="auth.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        #video-container {
+            position: relative;
+            margin: 20px 0;
+            width: 100%;
+            display: none;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 10px;
+            background: #f3f4f6;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .loading {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .register-link a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login</h1>
+        
+        <div id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <button class="btn" onclick="validateAndLogin()">Login</button>
+        </div>
+
+        <div id="face-verification" style="display: none;">
+            <div id="video-container">
+                <video id="video" autoplay muted playsinline></video>
+                <canvas id="overlay"></canvas>
+            </div>
+            <button class="btn" id="verify-btn" disabled>Verify Face</button>
+            <p class="status" id="face-status">Loading camera...</p>
+            <button class="btn" onclick="cancelVerification()" style="background: #ef4444;">Cancel</button>
+        </div>
+
+        <div class="register-link">
+            Don't have an account? <a href="register.html">Register here</a>
+        </div>
+    </div>
+
+    <script>
+        let isModelLoaded = false;
+        let isCameraReady = false;
+        let faceDetectionInterval;
+        let currentUsername = '';
+        
+        // Validate credentials and start face verification
+        async function validateAndLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            try {
+                // First verify username and password
+                auth.login(username, password);
+                
+                // If successful, show face verification
+                currentUsername = username;
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('face-verification').style.display = 'block';
+                document.getElementById('video-container').style.display = 'block';
+                
+                // Initialize face detection
+                await initFaceDetection();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Initialize face detection
+        async function initFaceDetection() {
+            try {
+                // Load models
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
+                ]);
+                
+                isModelLoaded = true;
+                updateStatus('Starting camera...');
+                
+                // Start camera
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                
+                const overlay = document.getElementById('overlay');
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+                
+                isCameraReady = true;
+                startFaceDetection();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus(error.message, 'error');
+            }
+        }
+
+        // Start face detection
+        function startFaceDetection() {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+
+            faceDetectionInterval = setInterval(async () => {
+                if (!isModelLoaded || !isCameraReady) return;
+
+                try {
+                    const video = document.getElementById('video');
+                    const detection = await faceapi.detectSingleFace(video)
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    const overlay = document.getElementById('overlay');
+                    const ctx = overlay.getContext('2d');
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                    if (detection) {
+                        // Draw grid lines
+                        drawGrid(ctx, overlay.width, overlay.height);
+                        
+                        // Draw face box
+                        const box = detection.detection.box;
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(box.x, box.y, box.width, box.height);
+                        
+                        // Draw target zone
+                        drawTargetZone(ctx, overlay.width, overlay.height);
+
+                        // Enable verify button if face is well-positioned
+                        const isGoodPosition = checkFacePosition(detection);
+                        document.getElementById('verify-btn').disabled = !isGoodPosition;
+                        
+                        updateStatus(isGoodPosition ? 
+                            'Face detected! Click Verify Face to continue.' : 
+                            'Center your face in the frame',
+                            isGoodPosition ? 'success' : 'loading'
+                        );
+                    } else {
+                        document.getElementById('verify-btn').disabled = true;
+                        updateStatus('No face detected', 'error');
+                    }
+                } catch (error) {
+                    console.error('Face detection error:', error);
+                }
+            }, 100);
+        }
+
+        // Check if face is well-positioned
+        function checkFacePosition(detection) {
+            const box = detection.detection.box;
+            const overlay = document.getElementById('overlay');
+            
+            const centerX = box.x + box.width / 2;
+            const iscentered = Math.abs(centerX - overlay.width / 2) < overlay.width * 0.2;
+            const isGoodSize = box.width > overlay.width * 0.3;
+            const isGoodConfidence = detection.detection.score > 0.85;
+
+            return iscentered && isGoodSize && isGoodConfidence;
+        }
+
+        // Verify face
+        async function verifyFace() {
+            const video = document.getElementById('video');
+            const detection = await faceapi.detectSingleFace(video)
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+            if (detection && detection.detection.score > 0.9) {
+                try {
+                    if (auth.verifyFace(currentUsername, detection.descriptor)) {
+                        updateStatus('Face verified! Logging in...', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 1000);
+                    } else {
+                        throw new Error('Face verification failed');
+                    }
+                } catch (error) {
+                    updateStatus(error.message, 'error');
+                }
+            } else {
+                updateStatus('Could not detect face clearly. Please try again.', 'error');
+            }
+        }
+
+        // Cancel verification
+        function cancelVerification() {
+            // Stop camera
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            const video = document.getElementById('video');
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            
+            // Show login form
+            document.getElementById('face-verification').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+            
+            // Clear password field
+            document.getElementById('password').value = '';
+        }
+
+        // Update status message
+        function updateStatus(message, type = 'loading') {
+            const status = document.getElementById('face-status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Show error message
+        function showError(message) {
+            const status = document.createElement('div');
+            status.className = 'status error';
+            status.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(status, document.querySelector('.register-link'));
+            
+            setTimeout(() => status.remove(), 3000);
+        }
+
+        // Draw grid lines
+        function drawGrid(ctx, width, height) {
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.lineWidth = 1;
+
+            // Draw vertical lines
+            for (let x = 0; x < width; x += 30) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // Draw horizontal lines
+            for (let y = 0; y < height; y += 30) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        // Draw target zone for face positioning
+        function drawTargetZone(ctx, width, height) {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const targetSize = width * 0.4; // 40% of width
+
+            // Draw target zone
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(
+                centerX - targetSize/2,
+                centerY - targetSize/2,
+                targetSize,
+                targetSize
+            );
+            ctx.setLineDash([]);
+
+            // Draw crosshair
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.beginPath();
+            // Horizontal line
+            ctx.moveTo(centerX - 20, centerY);
+            ctx.lineTo(centerX + 20, centerY);
+            // Vertical line
+            ctx.moveTo(centerX, centerY - 20);
+            ctx.lineTo(centerX, centerY + 20);
+            ctx.stroke();
+        }
+
+        // Add button event listener
+        document.getElementById('verify-btn').addEventListener('click', verifyFace);
+    </script>
+</body>
+</html>

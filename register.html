@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Notes App</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.13.0"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+    <script defer src="auth.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        #video-container {
+            position: relative;
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 10px;
+            background: #f3f4f6;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .loading {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .login-link a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #e5e7eb;
+            z-index: 1;
+        }
+
+        .step {
+            background: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            color: #6b7280;
+            font-weight: 500;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .step.active {
+            color: #3b82f6;
+        }
+
+        .step-number {
+            width: 25px;
+            height: 25px;
+            background: #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .step.active .step-number {
+            background: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Account</h1>
+        
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <span>Details</span>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <span>Face Setup</span>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <span>Complete</span>
+            </div>
+        </div>
+
+        <div id="step1-content">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <label for="confirm-password">Confirm Password</label>
+                <input type="password" id="confirm-password" placeholder="Confirm password">
+            </div>
+            <button class="btn" onclick="validateAndContinue()">Continue</button>
+        </div>
+
+        <div id="step2-content" style="display: none;">
+            <div id="video-container">
+                <video id="video" autoplay muted playsinline></video>
+                <canvas id="overlay"></canvas>
+            </div>
+            <button class="btn" id="capture-btn" disabled>Capture Face</button>
+            <p class="status" id="face-status">Loading camera...</p>
+        </div>
+
+        <div id="step3-content" style="display: none;">
+            <div class="status success">
+                Registration successful! You can now login.
+            </div>
+            <button class="btn" onclick="window.location.href='login.html'">Go to Login</button>
+        </div>
+
+        <div class="login-link">
+            Already have an account? <a href="login.html">Login here</a>
+        </div>
+    </div>
+
+    <script>
+        let isModelLoaded = false;
+        let isCameraReady = false;
+        let faceDetectionInterval;
+        let capturedFaceDescriptor = null;
+        
+        // Step 1: Validate form
+        function validateAndContinue() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (!username || !password || !confirmPassword) {
+                showError('Please fill in all fields');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+
+            // Check if username exists
+            if (auth.users[username]) {
+                showError('Username already exists');
+                return;
+            }
+
+            // Move to step 2
+            document.getElementById('step1-content').style.display = 'none';
+            document.getElementById('step2-content').style.display = 'block';
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            
+            // Initialize face detection
+            initFaceDetection();
+        }
+
+        // Initialize face detection
+        async function initFaceDetection() {
+            try {
+                // Load models
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
+                ]);
+                
+                isModelLoaded = true;
+                updateStatus('Starting camera...');
+                
+                // Start camera
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                
+                const overlay = document.getElementById('overlay');
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+                
+                isCameraReady = true;
+                startFaceDetection();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus(error.message, 'error');
+            }
+        }
+
+        // Start face detection
+        function startFaceDetection() {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+
+            faceDetectionInterval = setInterval(async () => {
+                if (!isModelLoaded || !isCameraReady) return;
+
+                try {
+                    const video = document.getElementById('video');
+                    const detection = await faceapi.detectSingleFace(video)
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    const overlay = document.getElementById('overlay');
+                    const ctx = overlay.getContext('2d');
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                    if (detection) {
+                        // Draw grid lines
+                        drawGrid(ctx, overlay.width, overlay.height);
+                        
+                        // Draw face box
+                        const box = detection.detection.box;
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(box.x, box.y, box.width, box.height);
+                        
+                        // Draw target zone
+                        drawTargetZone(ctx, overlay.width, overlay.height);
+
+                        // Enable capture button if face is well-positioned
+                        const isGoodPosition = checkFacePosition(detection);
+                        document.getElementById('capture-btn').disabled = !isGoodPosition;
+                        
+                        updateStatus(isGoodPosition ? 
+                            'Face detected! Click Capture Face to continue.' : 
+                            'Center your face in the frame',
+                            isGoodPosition ? 'success' : 'loading'
+                        );
+                    } else {
+                        document.getElementById('capture-btn').disabled = true;
+                        updateStatus('No face detected', 'error');
+                    }
+                } catch (error) {
+                    console.error('Face detection error:', error);
+                }
+            }, 100);
+        }
+
+        // Check if face is well-positioned
+        function checkFacePosition(detection) {
+            const box = detection.detection.box;
+            const overlay = document.getElementById('overlay');
+            
+            const centerX = box.x + box.width / 2;
+            const iscentered = Math.abs(centerX - overlay.width / 2) < overlay.width * 0.2;
+            const isGoodSize = box.width > overlay.width * 0.3;
+            const isGoodConfidence = detection.detection.score > 0.85;
+
+            return iscentered && isGoodSize && isGoodConfidence;
+        }
+
+        // Capture face
+        async function captureFace() {
+            const video = document.getElementById('video');
+            const detection = await faceapi.detectSingleFace(video)
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+            if (detection && detection.detection.score > 0.9) {
+                capturedFaceDescriptor = Array.from(detection.descriptor);
+                completeRegistration();
+            } else {
+                updateStatus('Failed to capture face clearly. Please try again.', 'error');
+            }
+        }
+
+        // Complete registration
+        function completeRegistration() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                auth.register(username, password, capturedFaceDescriptor);
+                
+                // Show success step
+                document.getElementById('step2-content').style.display = 'none';
+                document.getElementById('step3-content').style.display = 'block';
+                document.getElementById('step2').classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+                
+                // Stop camera
+                if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+                const video = document.getElementById('video');
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+            } catch (error) {
+                updateStatus(error.message, 'error');
+            }
+        }
+
+        // Update status message
+        function updateStatus(message, type = 'loading') {
+            const status = document.getElementById('face-status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Show error message
+        function showError(message) {
+            const status = document.createElement('div');
+            status.className = 'status error';
+            status.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(status, document.querySelector('.login-link'));
+            
+            setTimeout(() => status.remove(), 3000);
+        }
+
+        // Draw grid lines
+        function drawGrid(ctx, width, height) {
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.lineWidth = 1;
+
+            // Draw vertical lines
+            for (let x = 0; x < width; x += 30) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // Draw horizontal lines
+            for (let y = 0; y < height; y += 30) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        // Draw target zone for face positioning
+        function drawTargetZone(ctx, width, height) {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const targetSize = width * 0.4; // 40% of width
+
+            // Draw target zone
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(
+                centerX - targetSize/2,
+                centerY - targetSize/2,
+                targetSize,
+                targetSize
+            );
+            ctx.setLineDash([]);
+
+            // Draw crosshair
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.beginPath();
+            // Horizontal line
+            ctx.moveTo(centerX - 20, centerY);
+            ctx.lineTo(centerX + 20, centerY);
+            // Vertical line
+            ctx.moveTo(centerX, centerY - 20);
+            ctx.lineTo(centerX, centerY + 20);
+            ctx.stroke();
+        }
+
+        // Add button event listener
+        document.getElementById('capture-btn').addEventListener('click', captureFace);
+    </script>
+</body>
+</html>
